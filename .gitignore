@@ -1,0 +1,6 @@
+config.json
+*.xlsx
+__pycache__/
+*.ipynb
+!example.ipynb
+*.db

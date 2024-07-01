@@ -1,0 +1,7 @@
+{
+    "user":"username",
+    "key":"123456",
+    "domain":"office",
+    "random_new_key": "a new key that will be set to a client if you want to reenable them, limit by 20 char",
+    "files_folder":"D:\\Temp"
+}
