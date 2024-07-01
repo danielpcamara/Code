@@ -826,12 +826,12 @@ def insistir(quant_to_split, number_bot, anos, meses):
             again = False
             dur = datetime.now() - start
             print('')
-            print(f'\033[92m Finish Dutration {dur.total_seconds()}')
+            print(f'\033[92m Finish Dutration {dur.total_seconds()}\033[0m')
         except:
             dur = datetime.now() - start
             es.matar()
             print('')
-            print(f'\033[93m Fail Dutration {dur.total_seconds()}')
+            print(f'\033[93m Fail Dutration {dur.total_seconds()}\033[0m')
             pass
     
     return es
