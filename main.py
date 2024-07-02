@@ -739,7 +739,6 @@ class eContabilSite:
 
         #RUN
         load_page(self)
-        impostos = []
         for index, cliente in df_clientes.iterrows():
             id = cliente['id']
             done = self.is_mov_client_done(id, anos, meses)
@@ -750,14 +749,8 @@ class eContabilSite:
                     print(f'Client {id} all ready done.')
             else:
                 get_mov_of_client(self, cliente, anos, meses, dbg)
-        
-        if len(impostos) > 0:
-            df_imp = pd.DataFrame(impostos)
-            #Save
-            df_imp.to_sql('Impostos', con=self.cnx, if_exists='append', index=False)
 
-
-        return df_imp
+        pass
 
     def re_enable_clients(self, skip_to=None, dbg=None): # ok
         
@@ -824,6 +817,7 @@ def insistir(quant_to_split, number_bot, anos, meses):
             es = eContabilSite()
             es.get_mov(dfs[number_bot], anos, meses)
             again = False
+            es.matar()
             dur = datetime.now() - start
             print('')
             print(f'\033[92m Finish Dutration {dur.total_seconds()}\033[0m')
