@@ -16,3 +16,4 @@ O foco destes scripts é baixar todos os Protocolos e Guias de impostos presente
 
 # Uso
 Para verificar o seu uso recomenda-se observar o arquivo ```example.ipynb```.
+É muito provavel que em forks desse código seja preciso dar manutenção na variável ```caracteres_especiais``` usada no método ```get_this_page_tribute``` dentro do método ```get_mov``` presente na classe ```eContabilSite``` do arquivo ```main.py```. Esta linha de código lista os possíveis caracteres especiais que possam vir a surgir como Observação nas guias de tributos.

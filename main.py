@@ -706,7 +706,7 @@ class eContabilSite:
             impostos_elem = self.browser.find_elements(By.XPATH, '//form[@id="frmClientes"]//input[@class="button_tb"][@value="Visualizar"]/../..')
 
             impostos = []
-            caracteres_especiais = r'[\\/*?:"<>|]'
+            caracteres_especiais = r'[\\\'*?:"<>|\/\]'
             qtd = len(impostos_elem)
             for i, elm in enumerate(impostos_elem):
                 #obter informações do imposto:
@@ -724,12 +724,12 @@ class eContabilSite:
 
                 #Salvar protocolo obs= 47 length
                 protocol_name = f'{name} - {compet} - ({i}) Protocolo - {vtype} {code} - {obs}'
-                protocol_name = re.sub(caracteres_especiais,"-",protocol_name).replace("'","-")[:125]
+                protocol_name = re.sub(caracteres_especiais,"-",protocol_name)[:125]
                 save_pdf(self, protocol_name, valores['fn_protocol'])
 
                 #Salvar guia
                 tribute_name = f'{name} - {compet} - ({i}) Guia - {vtype} {code} - {obs}'
-                tribute_name = re.sub(caracteres_especiais,"-",tribute_name).replace("'","-")[:125]
+                tribute_name = re.sub(caracteres_especiais,"-",tribute_name)[:125]
                 save_pdf(self, tribute_name, valores['fn_tribute'])
             
             return impostos
