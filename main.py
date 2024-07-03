@@ -4,7 +4,8 @@ import json
 from datetime import datetime
 import re
 import sqlite3
-from pyvirtualdisplay import Display
+import base64
+from os import path
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -21,9 +22,11 @@ from time import sleep
 class eContabilSite:
 
     def __init__(self, dbg=False):
-        
         chrome_options = webdriver.ChromeOptions()
-        settings = {
+        if not dbg:
+            chrome_options.add_argument("--headless")
+
+        self.print_settings = {
             "recentDestinations": [{
                 "id": "Save as PDF",
                 "origin": "local",
@@ -34,10 +37,10 @@ class eContabilSite:
         }
 
         with open('config.json') as file:
-            files_folder = json.load(file)['files_folder']
+            self.files_folder = json.load(file)['files_folder']
 
-        prefs = {'printing.print_preview_sticky_settings.appState': json.dumps(settings),
-                'savefile.default_directory': files_folder}
+        prefs = {'printing.print_preview_sticky_settings.appState': json.dumps(self.print_settings),
+                'savefile.default_directory': self.files_folder}
         chrome_options.add_experimental_option('prefs', prefs)
         chrome_options.add_argument('--kiosk-printing')
 
@@ -688,8 +691,9 @@ class eContabilSite:
                         break
 
                 #rename and print
-                self.browser.execute_script("document.title = \'{}\'".format(protocol_name + '.pdf'))
-                self.browser.execute_script("window.print();")
+                pdf_data = self.browser.execute_cdp_cmd("Page.printToPDF", self.print_settings)
+                with open(path.join(self.files_folder, protocol_name) + '.pdf', 'wb') as file:
+                    file.write(base64.b64decode(pdf_data['data']))
 
                 #close window
                 self.browser.switch_to.window(current_window)
@@ -703,7 +707,7 @@ class eContabilSite:
 
             impostos = []
             caracteres_especiais = r'[\\/*?:"<>|]'
-
+            qtd = len(impostos_elem)
             for i, elm in enumerate(impostos_elem):
                 #obter informações do imposto:
                 valores = get_info_on_tribute(elm)
@@ -716,7 +720,7 @@ class eContabilSite:
                 vtype = valores['type']
                 code = valores['code']
                 obs = valores['obs']
-                self.reprint(f'{name} - {compet} - ({i}) Guia - {vtype} {code} - {obs}')
+                self.reprint(f'{name} - {compet} - ({i}/{qtd}) Guia - {vtype} {code} - {obs}')
 
                 #Salvar protocolo obs= 47 length
                 protocol_name = f'{name} - {compet} - ({i}) Protocolo - {vtype} {code} - {obs}'
