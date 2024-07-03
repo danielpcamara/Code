@@ -6,3 +6,4 @@ re
 sqlite3
 selenium
 time
+pyvirtualdisplay

@@ -4,6 +4,7 @@ import json
 from datetime import datetime
 import re
 import sqlite3
+from pyvirtualdisplay import Display
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -20,6 +21,7 @@ from time import sleep
 class eContabilSite:
 
     def __init__(self, dbg=False):
+        
         chrome_options = webdriver.ChromeOptions()
         settings = {
             "recentDestinations": [{
@@ -81,6 +83,23 @@ class eContabilSite:
         comando = f"UPDATE Andamento SET status = '{status}' WHERE id = '{code}' and compet = '{compet}'"
         cursor.execute(comando)
         db.commit()
+        db.close()
+        pass
+
+    def run_custom_command(self, commands):
+        db = sqlite3.connect('scraped.db')
+        cursor=db.cursor()
+        cursor.execute("begin")
+        for command in commands.split(";"):
+            command = command.strip().replace(chr(10), "")
+            x = cursor.execute(command)
+            print(f"Comando: {command}. Linhas afetadas: {x.rowcount}.")
+        print(f"Confirmar? (S)")
+        input1 = input()
+        if input1 == "S":
+            db.commit()
+        else:
+            db.rollback()
         db.close()
         pass
 
@@ -641,6 +660,12 @@ class eContabilSite:
                     tipo = 'Outros'
                     pos = [['.//td[1]/input', 'get_attribute', 'value'],
                         ['.//td[2]', 'text', 'value'],
+                        ['.//td[3]', 'text', ''],
+                        ['.//td[5]', 'text', '']]
+                elif 'Ver_ISS' in fn_call:
+                    tipo = 'ISS'
+                    pos = [['.//td[1]/input', 'get_attribute', 'value'],
+                        ['.//td[2]', 'text', ''],
                         ['.//td[3]', 'text', ''],
                         ['.//td[5]', 'text', '']]
                 else:
