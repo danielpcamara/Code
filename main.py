@@ -5,7 +5,7 @@ from datetime import datetime
 import re
 import sqlite3
 import base64
-from os import path
+from os import path, listdir, remove
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -827,6 +827,147 @@ class eContabilSite:
 
     def matar(self):
         self.browser.quit()
+        pass
+
+class AlwaysDoubleCheck:
+    def __init__ (self):
+        with open('config.json') as file:
+            self.files_folder = json.load(file)['files_folder']
+        
+        self.cnx = sqlite3.connect('scraped.db')
+        pass
+    
+    @property
+    def get_saved_errors(self):
+        df = pd.read_sql_query('Select * from Erros', self.cnx)
+        return df
+
+    def remove_duplicates_files(self):
+        def get_pk(tx):
+            padrao = r" - \d{4}\.\d{2} - "
+            match = re.search(padrao, tx)
+            if match:
+                
+                posicao_final = match.end()
+                resultado_split = tx[:posicao_final + 8]
+            else:
+                resultado_split = 'ERRO'
+            
+            return resultado_split
+        
+        files_names = [f for f in listdir(self.files_folder) if path.isfile(path.join(self.files_folder, f))]
+        dff = pd.DataFrame(files_names, columns=['name'])
+
+        dff['pk'] = dff['name'].apply(lambda x: get_pk(x))
+
+        dff_to_remove = dff[dff.duplicated(subset=['pk'], keep='last')]
+
+        print(f'Serão deletados {len(dff_to_remove)} arquivos.')
+        for index, row in dff_to_remove.iterrows():
+            nome_arquivo = row['name']
+            caminho_arquivo = path.join(self.files_folder, row['name'])
+            
+            try:
+                remove(caminho_arquivo)
+                print(f"Arquivo {nome_arquivo} deletado com sucesso.")
+            except OSError as e:
+                print(f"Erro ao deletar arquivo {nome_arquivo}: {e}")
+        pass
+
+    def update_errors(self):
+        def get_field(tx, pos):
+            padrao = r" - \d{4}\.\d{2} - "
+            match = re.search(padrao, tx)
+            if match:
+                
+                posicao_inicial = match.start()
+                posicao_final = match.end()
+                pospar = re.search(r'\)',tx[posicao_final +1:]).end()
+                posdash = re.search(r' - ',tx[posicao_final +1:]).start()
+                if pos == 0:
+                    resultado_split = tx[:posicao_inicial]
+                elif pos == 1:
+                    resultado_split = tx[posicao_inicial +3:posicao_final-3]
+                elif pos == 2:
+                    resultado_split = tx[posicao_final +1:posicao_final + pospar]
+                elif pos == 3:
+                    resultado_split = tx[posicao_final + pospar +2:posicao_final + pospar + posdash-1]
+                    resultado_split = resultado_split.replace('-', ' ')
+                else:
+                    resultado_split = 'FORA DO LIMITE'
+
+                resultado_split = resultado_split.strip()
+
+            else:
+                resultado_split = 'ERRO'
+            
+            return resultado_split
+
+        files_names = [f for f in listdir(self.files_folder) if path.isfile(path.join(self.files_folder, f))]
+        dff = pd.DataFrame(files_names, columns=['file'])
+
+
+        dff['company'] = dff['file'].apply(lambda x: get_field(x,0))
+        dff['compet'] = dff['file'].apply(lambda x: get_field(x,1))
+        dff['seq'] = dff['file'].apply(lambda x: get_field(x,2))
+        dff['type'] = dff['file'].apply(lambda x: get_field(x,3))
+
+        comando = """
+            Select Distinct replace(trim(c.v_nome), '/', '-') companyb, trim(i.compet) competb, i.seq seqb, 'Guia' typeb, c.id from Impostos i
+            Inner Join Clientes c on i.emp = c.id
+            Union
+            Select Distinct replace(trim(c.v_nome), '/', '-') companyb, trim(i.compet) competb, i.seq seqb, 'Protocolo' typeb, c.id from Impostos i
+            Inner Join Clientes c on i.emp = c.id
+        """
+        dfb = pd.read_sql_query(comando, self.cnx)
+        dfb['seqb'] = dfb['seqb'].apply(lambda x: str(x))
+
+        df_compara = pd.merge(dff, dfb, left_on=['company', 'compet', 'seq', 'type'], right_on=['companyb', 'competb', 'seqb', 'typeb'], how='outer')
+        df_compara = df_compara[df_compara['company'] !=df_compara['companyb']]
+        df_compara.to_sql('Erros', self.cnx, if_exists='replace')
+        pass
+    
+    def reg_erro_andamento(self, id, compets):
+        filtro = "('" + "', '".join(compets) + "')"
+        comando = f"""
+            Update Andamento
+            set status = 'erro'
+            where id = '{str(id)}' and compet in {filtro}
+        """
+        db = sqlite3.connect('scraped.db')
+        cursor=db.cursor()
+        x = cursor.execute(comando)
+        print(f"Linhas afetadas: {x.rowcount}.")
+        db.commit()
+        db.close()
+        pass
+    
+    def get_saved_client(self, id): # ok
+        comando = f"Select * from Clientes where id = '{str(id)}'"
+        df = pd.read_sql(comando, con=self.cnx)
+
+        return df
+
+    def rerun(self):
+        df = self.get_saved_errors
+        es = eContabilSite
+
+        for id_grupo, grupo in df.groupby('id'):
+            
+            compets = list(set(grupo['competb']))
+
+            print(f'Reprocessando Cliente {id_grupo} nas competências {compets}')
+
+            anos = list(set([item[:4] for item in compets]))
+            meses = list(set([item[-2:] for item in compets]))
+
+            self.reg_erro_andamento(id_grupo, compets) # Apontar erro para habilitar execução
+            
+            df_cli = self.get_saved_client(id_grupo) # obter df cliente
+
+            es.get_mov(df_cli, anos, meses) # reprocessar movimento
+
+            print(f'Cliente {id_grupo} reprocessado nas competências {compets}')
         pass
 
 def insistir(quant_to_split, number_bot, anos, meses):
