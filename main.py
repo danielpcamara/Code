@@ -6,6 +6,7 @@ import re
 import sqlite3
 import base64
 from os import path, listdir, remove
+import zipfile
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -15,9 +16,6 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException
 
 from time import sleep
-
-# Usuario  seq, nome, permissa, impostos, transferencia, email
-# Empresa id, nome, cadastro, ativo, razao, login, inscf, elamins, telefone, usuarios, endereco, numero, complemento, bairro, cep, uf, municipio
 
 class eContabilSite:
 
@@ -979,7 +977,10 @@ class AlwaysDoubleCheck:
         pass
     
     def get_saved_client(self, id): # ok
-        comando = f"Select * from Clientes where id = '{str(id)}'"
+        if id == None:
+            comando = f"Select * from Clientes"
+        else:
+            comando = f"Select * from Clientes where id = '{str(id)}'"
         df = pd.read_sql(comando, con=self.cnx)
 
         return df
@@ -1007,6 +1008,26 @@ class AlwaysDoubleCheck:
         
         es.matar()
 
+        pass
+    
+    def zip(self, dbg=False):
+        def find_files_with_prefix(self, prefix):
+            files = []
+            for filename in listdir(self.files_folder):
+                if filename.replace('/', '-').strip().startswith(prefix):
+                    files.append(path.join(self.files_folder, filename))
+            return files
+
+        df = self.get_saved_client(None)
+
+        for cliente in df['v_nome']:
+            nome = cliente.replace('/', '-').strip()
+            files_to_zip = find_files_with_prefix(self, nome)
+            with zipfile.ZipFile(nome+'.zip', 'w') as zipf:
+                for file in files_to_zip:
+                    zipf.write(file, path.basename(file))
+            if dbg:
+                print(f'Zip do Cliente {nome} compactado com {len(files_to_zip)} arquivos.')
         pass
 
 def insistir(quant_to_split, number_bot, anos, meses):
