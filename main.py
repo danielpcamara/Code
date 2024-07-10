@@ -723,12 +723,12 @@ class eContabilSite:
                 self.reprint(f'{name} - {compet} - ({i}/{qtd}) Guia - {vtype} {code} - {obs}')
 
                 #Salvar protocolo obs= 47 length
-                protocol_name = f'{name} - {compet} - ({i}) Protocolo - {vtype} {code} - {obs}'
+                protocol_name = f'{name} - {compet} - ({i}) Guia - {vtype} {code} - {obs}'
                 protocol_name = re.sub(caracteres_especiais,"-",protocol_name)[:125]
                 save_pdf(self, protocol_name, valores['fn_protocol'])
 
                 #Salvar guia
-                tribute_name = f'{name} - {compet} - ({i}) Guia - {vtype} {code} - {obs}'
+                tribute_name = f'{name} - {compet} - ({i}) Protocolo - {vtype} {code} - {obs}'
                 tribute_name = re.sub(caracteres_especiais,"-",tribute_name)[:125]
                 save_pdf(self, tribute_name, valores['fn_tribute'])
             
@@ -820,6 +820,42 @@ class eContabilSite:
                     print(f'Cliente {id} reativado e senha alterada.')
         
         pass
+    
+    def re_disable_clients(self, skip_to=None, dbg=None): # ok
+        
+        if dbg == None:
+            dbg = self.dbg
+        def load_page(self):
+            self.browser.get(self.main_url + "/adm/clientes.asp?" + self.session + "&q=2&a=consultar")
+        
+        def re_disable_client(self, id):
+            #goto client
+            self.browser.execute_script(f'Clica_Empresa({[id]})')
+            
+            #disnable
+            command = f'document.getElementById("txt_fAtiva").selectedIndex = 1;'
+            self.browser.execute_script(command)
+
+            #save
+            self.browser.find_element(By.ID, 'cmdGrava').click()
+
+            pass
+        
+        load_page(self)
+        df = self.get_saved_clients()
+        df = df[df['ativo'] == 'Não']
+        for id in list(df['id']):
+            if str(id) == str(skip_to):
+                skip_to = None
+                if dbg:
+                    print(f'Todos os clientes antes até o {str(id)} foram pulados.')
+            if skip_to is None:
+                re_disable_client(self, id)
+                if dbg:
+                    print(f'Cliente {id} redesativado.')
+        
+        pass
+
 
     def test(self, t=1):
         sleep(t)
@@ -927,7 +963,7 @@ class AlwaysDoubleCheck:
         df_compara.to_sql('Erros', self.cnx, if_exists='replace')
         pass
     
-    def reg_erro_andamento(self, id, compets):
+    def reg_erro_andamento(self, id, compets, dbg=False):
         filtro = "('" + "', '".join(compets) + "')"
         comando = f"""
             Update Andamento
@@ -937,7 +973,7 @@ class AlwaysDoubleCheck:
         db = sqlite3.connect('scraped.db')
         cursor=db.cursor()
         x = cursor.execute(comando)
-        print(f"Linhas afetadas: {x.rowcount}.")
+        if dbg: print(f"Linhas afetadas: {x.rowcount}.")
         db.commit()
         db.close()
         pass
@@ -948,9 +984,9 @@ class AlwaysDoubleCheck:
 
         return df
 
-    def rerun(self):
+    def rerun(self, dbg=False):
         df = self.get_saved_errors
-        es = eContabilSite
+        es = eContabilSite()
 
         for id_grupo, grupo in df.groupby('id'):
             
@@ -960,14 +996,17 @@ class AlwaysDoubleCheck:
 
             anos = list(set([item[:4] for item in compets]))
             meses = list(set([item[-2:] for item in compets]))
+            anos = [int(ano) for ano in anos]
+            meses = [int(mes) for mes in meses]
 
-            self.reg_erro_andamento(id_grupo, compets) # Apontar erro para habilitar execução
+            self.reg_erro_andamento(id_grupo, compets, False) # Apontar erro para habilitar execução
             
             df_cli = self.get_saved_client(id_grupo) # obter df cliente
 
-            es.get_mov(df_cli, anos, meses) # reprocessar movimento
+            es.get_mov(df_cli, anos, meses, dbg) # reprocessar movimento
+        
+        es.matar()
 
-            print(f'Cliente {id_grupo} reprocessado nas competências {compets}')
         pass
 
 def insistir(quant_to_split, number_bot, anos, meses):
