@@ -1036,6 +1036,8 @@ class AlwaysDoubleCheck:
 
     def zip(self, dbg=False):
         for s_folder in listdir(self.files_folder):
+            if dbg:
+                print(s_folder)
             subfolder = path.join(self.files_folder, s_folder)
             nome_zip = path.join(self.files_folder, s_folder+'.zip')
             with zipfile.ZipFile(nome_zip, 'w') as zipf:
