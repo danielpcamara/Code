@@ -5,7 +5,7 @@ from datetime import datetime
 import re
 import sqlite3
 import base64
-from os import path, listdir, remove
+from os import path, listdir, remove, makedirs, rename
 import zipfile
 
 from selenium import webdriver
@@ -1010,25 +1010,38 @@ class AlwaysDoubleCheck:
 
         pass
     
+    def group_file_by_client(self, dbg=False):
+        def extract_companyname(tx):
+            padrao = r" - \d{4}\.\d{2} - "
+            match = re.search(padrao, tx)
+            if match:
+                posicao_inicial = match.start()
+                resultado_split = tx[:posicao_inicial].strip()
+            else:
+                resultado_split = 'ERRO'
+            
+            return resultado_split
+
+        folder = r'D:/Temp'
+        for file in listdir(folder):
+            if file.endswith('.pdf'):
+                companyname = extract_companyname(file)
+                
+                new_folder = path.join(folder, companyname)
+                if not path.exists(new_folder):
+                    print(f'Pasta criada {companyname}')
+                    makedirs(new_folder)
+                
+                rename(path.join(folder, file), path.join(new_folder, file))
+
     def zip(self, dbg=False):
-        def find_files_with_prefix(self, prefix):
-            files = []
-            for filename in listdir(self.files_folder):
-                if filename.replace('/', '-').strip().startswith(prefix):
-                    files.append(path.join(self.files_folder, filename))
-            return files
-
-        df = self.get_saved_client(None)
-
-        for cliente in df['v_nome']:
-            nome = cliente.replace('/', '-').strip()
-            files_to_zip = find_files_with_prefix(self, nome)
-            with zipfile.ZipFile(nome+'.zip', 'w') as zipf:
-                for file in files_to_zip:
-                    zipf.write(file, path.basename(file))
-            if dbg:
-                print(f'Zip do Cliente {nome} compactado com {len(files_to_zip)} arquivos.')
-        pass
+        for s_folder in listdir(self.files_folder):
+            subfolder = path.join(self.files_folder, s_folder)
+            nome_zip = path.join(self.files_folder, s_folder+'.zip')
+            with zipfile.ZipFile(nome_zip, 'w') as zipf:
+                for file in listdir(subfolder):
+                    file_path = path.join(subfolder, file)
+                    zipf.write(file_path, path.basename(file))
 
 def insistir(quant_to_split, number_bot, anos, meses):
     es = eContabilSite()
